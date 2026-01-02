@@ -161,7 +161,8 @@ REDIS_PASSWORD=
 
 **Inital Setup**
 
-- [x] Folder setup
+- [x] Readme Setup
+- [ ] Folder setup
 - [ ] basic server implementation
 - [ ] database setup
 
