@@ -25,6 +25,7 @@ type Client struct {
 	hub  *Hub
 	conn *websocket.Conn
 	send chan []byte
+	roomId string
 }
 
 // readPump read message from the client and broadcast them into hub
@@ -45,7 +46,10 @@ func (c *Client) readPump() {
 			break
 		}
 		message = bytes.TrimSpace(bytes.Replace(message, newline, space, -1))
-		c.hub.broadcast <- message
+		c.hub.broadcast <- Message{
+			roomID: c.roomId,
+			payload: message,
+		}
 	}
 }
 
@@ -95,6 +99,9 @@ func ServerWs(h *Hub, w http.ResponseWriter, r *http.Request) {
 		WriteBufferSize:   1024,
 		EnableCompression: true,
 	}
+
+	roomID := r.URL.Query().Get("roomID")
+
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		// throw error
@@ -107,6 +114,7 @@ func ServerWs(h *Hub, w http.ResponseWriter, r *http.Request) {
 		hub:  h,
 		conn: conn,
 		send: make(chan []byte, 256),
+		roomId: roomID,
 	}
 	// adding new client to hub
 	h.register <- client

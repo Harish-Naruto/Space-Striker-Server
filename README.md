@@ -162,9 +162,9 @@ REDIS_PASSWORD=
 **Inital Setup**
 
 - [x] Readme Setup
-- [ ] Folder setup
-- [ ] basic server implementation
-- [ ] database setup
+- [x] Folder setup
+- [x] basic server implementation
+- [x] redis connection setup
 
 **Core Features & Stability**
 
