@@ -13,12 +13,21 @@ const (
 	Miss
 )
 
+type GameStatus string
+
+const (
+	StatusWait GameStatus = "WAITING_FOR_SHIP"
+	StatusActive GameStatus = "ACTIVE"
+	StatusHold GameStatus = "HOLD"
+)
+
 type Game struct {
 	ID				string						`json:"id"`
 	Boards			map[string][][]CellState    `json:"-"`
 	Players			[2]string					`json:"players"`
 	ActivePlayer	string						`json:"active_player"`
-	Winner 			string						`json:"winner"`	
+	Winner 			string						`json:"winner"`
+	Status			GameStatus					`json:"status"`  //Current Status of A Game
 }
 
 type Point struct {
@@ -30,8 +39,8 @@ var (
 	ErrNotYourTurn = errors.New("Invalid turn, not your turn mat")
 	ErrOutOfBound = errors.New("Points are out of bound")
 	ErrBoardNotFound = errors.New("board not found")
+	ErrGameNotStarted = errors.New("Game has not started yet")
 )
-
 
 func NewGame(P1 , P2, roomId string) (*Game) {
 
@@ -40,6 +49,7 @@ func NewGame(P1 , P2, roomId string) (*Game) {
 		Players: [2]string{P1,P2},
 		ActivePlayer: P1,
 		Winner: "",
+		Status: StatusWait,
 	}
 	Boards := make(map[string][][]CellState)
 	for _ ,i := range g.Players {
@@ -60,6 +70,11 @@ func NewGame(P1 , P2, roomId string) (*Game) {
 
 
 func (g *Game) HandleShot(playerID string, p Point) (CellState,error) {
+
+	if g.Status != StatusActive {
+		return Empty, ErrGameNotStarted
+	}
+
 	if g.ActivePlayer != playerID {
 		return Empty, ErrNotYourTurn
 	}
@@ -81,13 +96,15 @@ func (g *Game) HandleShot(playerID string, p Point) (CellState,error) {
 	}
 
 	board[p.X][p.Y] = Miss
+	g.ActivePlayer = opponentID
 
 	return Miss , nil
 
 }
 
-func (g  *Game) CheckWinner(opponentID string) bool {
-	board := g.Boards[opponentID]
+func (g  *Game) CheckWinner(playerID string) bool {
+	opponentID := g.GetOpponent(playerID)
+	board:= g.Boards[opponentID]
 	countShip := 0
 	countHit := 0
 	for i:= range board {
@@ -116,4 +133,34 @@ func (g *Game) GetOpponent(Player string) string {
 	return g.Players[1]
 }
 
+func (g *Game) AddShip(playerID string, Ships []Point) error {
 
+	if g.Status!=StatusActive {
+		return ErrGameNotStarted
+	}
+	board := g.Boards[playerID]
+
+	for i:= range Ships {
+		x := Ships[i].X
+		y := Ships[i].Y
+
+		if x < 0 || x>= BoardSize || y < 0 || y>=BoardSize {
+			return ErrOutOfBound
+		}
+
+		board[x][y] = Ship
+	}
+
+	g.Boards[playerID] = board
+
+	return nil
+}
+
+func (g *Game) SwitchActivePlayer(playerID string)  {
+	opponentID := g.GetOpponent(playerID)
+	g.ActivePlayer = opponentID
+}
+
+// move the logic of locking a game state above since we need to lock game state wheneven we perform operation on game
+// Add Active player to Game to Start
+// remember to handle condition if user send multiple move request in 1 ms

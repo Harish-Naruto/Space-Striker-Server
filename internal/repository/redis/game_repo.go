@@ -3,12 +3,18 @@ package redis
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"time"
 	"github.com/Harish-Naruto/Space-Striker-Server/pkg/domain"
 	"github.com/redis/go-redis/v9"
 )
 
+var (
+	ErrGameFull = errors.New("Game Full") 
+)
+
 type RedisGameRepository struct {
-	redisClient *redis.Client
+	RedisClient *redis.Client
 }
 
 func (R *RedisGameRepository) SaveGame(ctx context.Context,g *domain.Game)	error {
@@ -16,11 +22,11 @@ func (R *RedisGameRepository) SaveGame(ctx context.Context,g *domain.Game)	error
 	if err!=nil {
 		return err
 	}
-	return R.redisClient.Set(ctx,"game:"+g.ID,data,0).Err()
+	return R.RedisClient.Set(ctx,"game:"+g.ID,data,0).Err()
 }
 
 func (R *RedisGameRepository) GetGame(ctx context.Context,id string) (*domain.Game,error) {
-	data,err := R.redisClient.Get(ctx,"game:"+id).Bytes()
+	data,err := R.RedisClient.Get(ctx,"game:"+id).Bytes()
 	if err!=nil {
 		return nil,err
 	}
@@ -32,4 +38,43 @@ func (R *RedisGameRepository) GetGame(ctx context.Context,id string) (*domain.Ga
 	}
 
 	return &g, nil
+}
+
+func (R *RedisGameRepository) LockGame(ctx context.Context, gameID string) error {
+	lock := "lock:game-"+gameID
+	ok, err := R.RedisClient.SetNX(ctx,lock,"locked",5*time.Second).Result()
+	if err!=nil || !ok {
+		return errors.New("faild to lock game")
+	}
+	return nil
+}
+
+func (R *RedisGameRepository) DeleteLock(ctx context.Context, gameID string) error {
+	lock := "lock:game"+gameID
+	return R.RedisClient.Del(ctx,lock).Err()
+}
+
+func (R *RedisGameRepository) AddPlayerToGame(ctx context.Context, gameId string, playerID string) ( int64 ,error) {
+	activeGameKey := "Active:game-"+gameId
+	numberPlayers := R.RedisClient.SCard(ctx,activeGameKey).Val()
+
+	if numberPlayers >=2 {
+		return 0,ErrGameFull
+	}
+	R.RedisClient.SAdd(ctx,activeGameKey,playerID)
+	numberPlayers = R.RedisClient.SCard(ctx,activeGameKey).Val()
+	return numberPlayers,nil
+}
+
+func (R *RedisGameRepository) GetPlayers(ctx context.Context,gameID string) ([]string,error) {
+	activeGameKey := "Active:game-"+gameID
+	data := R.RedisClient.SMembers(ctx,activeGameKey)
+	var players []string = data.Val();
+	return players,nil
+}
+
+func (R *RedisGameRepository) FindPlayer(ctx context.Context,gameID string, playerID string) bool {
+	activeKey:="Active:game-"+gameID
+	check :=R.RedisClient.SIsMember(ctx,activeKey,playerID).Val()
+	return check
 }

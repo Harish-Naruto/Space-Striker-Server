@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/Harish-Naruto/Space-Striker-Server/internal/repository/redis"
+	"github.com/Harish-Naruto/Space-Striker-Server/internal/services"
 	"github.com/gorilla/websocket"
 )
 
@@ -26,12 +28,14 @@ type Client struct {
 	conn *websocket.Conn
 	send chan []byte
 	roomId string
+	gs *services.GameService
+	playerID string
 }
 
 // readPump read message from the client and broadcast them into hub
 func (c *Client) readPump() {
 	defer func() {
-		c.hub.unregister <- c
+		c.hub.Unregister <- c
 		c.conn.Close()
 	}()
 	c.conn.SetReadLimit(maxMessageSize)
@@ -46,10 +50,10 @@ func (c *Client) readPump() {
 			break
 		}
 		message = bytes.TrimSpace(bytes.Replace(message, newline, space, -1))
-		c.hub.broadcast <- Message{
-			roomID: c.roomId,
-			payload: message,
+		if err := MessageHandler(message,c.roomId,c.gs); err!=nil{
+			log.Print(err)
 		}
+
 	}
 }
 
@@ -101,6 +105,13 @@ func ServerWs(h *Hub, w http.ResponseWriter, r *http.Request) {
 	}
 
 	roomID := r.URL.Query().Get("roomID")
+	playerID := r.URL.Query().Get("playerID")
+
+	if roomID=="" || playerID=="" {
+		log.Println("roomID or PlayerID is missing")
+		return
+	}
+	
 
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -108,6 +119,10 @@ func ServerWs(h *Hub, w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 		return
 	}
+	repo := redis.RedisGameRepository{
+		RedisClient: h.rdb,
+	}
+	gs := services.NewGameService(repo,h)
 
 	// create new Client
 	client := &Client{
@@ -115,11 +130,13 @@ func ServerWs(h *Hub, w http.ResponseWriter, r *http.Request) {
 		conn: conn,
 		send: make(chan []byte, 256),
 		roomId: roomID,
+		gs: gs,
+		playerID: playerID,
 	}
-	// adding new client to hub
-	h.register <- client
-
 	// this spawns the read and write thread for each client to send and receive messages
 	go client.readPump()
 	go client.writePump()
+	
+	// adding new client to hub
+	h.Register <- client
 }
