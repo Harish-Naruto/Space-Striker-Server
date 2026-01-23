@@ -136,7 +136,8 @@ func ServerWs(h *Hub, w http.ResponseWriter, r *http.Request) {
 	// this spawns the read and write thread for each client to send and receive messages
 	go client.readPump()
 	go client.writePump()
-	
+
 	// adding new client to hub
 	h.Register <- client
 }
+

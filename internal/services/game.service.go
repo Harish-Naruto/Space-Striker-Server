@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 
 	"github.com/Harish-Naruto/Space-Striker-Server/internal/models"
@@ -13,6 +14,7 @@ import (
 
 type HubInterface interface {
 	BroadcastMessage (roomID string, payload []byte)
+	SoloMessage (channel string, payload []byte)
 }
 
 
@@ -94,14 +96,16 @@ func (gs *GameService) HandlePlace(ctx context.Context, playerId string, RoomID 
 }
 
 func (gs *GameService) HandleJoin(ctx context.Context, playerId string,roomID string) error {
-	// Handle condition if user get disconnected and join again
-	// use error thrown by add Player if player is already present in active roomId set
+
 	defer gs.repo.DeleteLock(ctx,roomID)
-	gs.repo.LockGame(ctx,roomID)
+	if err := gs.repo.LockGame(ctx,roomID); err!=nil{
+		gs.SendToSolo(ctx,playerId,models.TypeGameUpdate,models.UpdatePayload{Message: "Player here is your game update"})
+		return nil
+	}
 
 	if gs.repo.FindPlayer(ctx,roomID,playerId) {
 		// send game updated state
-		gs.SendToRoom(roomID,models.TypeGameUpdate,models.UpdatePayload{Message: "Player here is your game update"})
+		gs.SendToSolo(ctx,playerId,models.TypeGameUpdate,models.UpdatePayload{Message: "Player here is your game update"})
 		return nil
 	}
 
@@ -119,9 +123,9 @@ func (gs *GameService) HandleJoin(ctx context.Context, playerId string,roomID st
 			return errors.New("Failed to save Game")
 		}
 
-		  //gs.SendToRoom(roomID, models.TypeGameUpdate,models.UpdatePayload{Message: "Game Created for roomID:"+roomID})
+		  gs.SendToRoom(roomID, models.TypeGameUpdate,models.UpdatePayload{Message: "Game Created for roomID:"+roomID})
 	}
-	// gs.SendToRoom(roomID,models.TypeGameUpdate,models.UpdatePayload{Message: "Player:"+ playerId+ " added to roomID:"+roomID})
+	 gs.SendToRoom(roomID,models.TypeGameUpdate,models.UpdatePayload{Message: "Player:"+ playerId+ " added to roomID:"+roomID})
 	return nil
 }
 
@@ -159,9 +163,38 @@ func (gs *GameService) SendToRoom(roomId string, msgType models.MessageType, pay
 	msg, err := json.Marshal(response)
 	if err != nil {
 		log.Printf("failed to marshal response :%v", response)
+		return
+	}
+	
+	gs.hub.BroadcastMessage(roomId,msg)
+	
+}
+
+func (gs *GameService) SendToSolo(ctx context.Context,playerID string,msgType models.MessageType,payload interface{})  {
+	// get serverId first
+	ServerID := gs.repo.GetPlayerServer(ctx,playerID)
+
+	if ServerID == "" {
+		return
 	}
 
-	gs.hub.BroadcastMessage(roomId,msg)
+	channel := fmt.Sprintf("solo:%s:%s",ServerID,playerID)
+
+	// Parse the message
+	response := models.MessageWs{
+		Type:    msgType,
+		Payload: toRawMessage(payload),
+	}
+
+	msg, err := json.Marshal(response)
+	if err != nil {
+		log.Printf("failed to marshal response :%v", response)
+		return
+	}
+
+	// publish message to the channel solo:serverID:playerID using
+	gs.hub.SoloMessage(channel,msg)
+	
 }
 
 func toRawMessage(v any) json.RawMessage {

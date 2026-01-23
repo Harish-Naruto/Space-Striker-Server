@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log"
 	"time"
+
 	"github.com/Harish-Naruto/Space-Striker-Server/pkg/domain"
 	"github.com/redis/go-redis/v9"
 )
@@ -77,4 +79,21 @@ func (R *RedisGameRepository) FindPlayer(ctx context.Context,gameID string, play
 	activeKey:="Active:game-"+gameID
 	check :=R.RedisClient.SIsMember(ctx,activeKey,playerID).Val()
 	return check
+}
+
+func (R *RedisGameRepository) GetPlayerServer(ctx context.Context,playerID string) string {
+	
+	serverID,err := R.RedisClient.HGet(ctx,"presence",playerID).Result()
+
+	if err == redis.Nil {
+		log.Printf("playerID , %s , not found in redis",playerID)
+		return ""
+	}
+
+	if err != nil {
+		log.Printf("Error while finding ServerID for PlayerID %s : %v",playerID,err)
+		return ""
+	}
+
+	return serverID
 }
