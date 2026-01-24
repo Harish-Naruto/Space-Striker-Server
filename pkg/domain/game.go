@@ -1,6 +1,8 @@
 package domain
 
-import "errors"
+import (
+	"errors"
+)
 
 var BoardSize = 5; //remember to take this from env file
 
@@ -19,11 +21,12 @@ const (
 	StatusWait GameStatus = "WAITING_FOR_SHIP"
 	StatusActive GameStatus = "ACTIVE"
 	StatusHold GameStatus = "HOLD"
+	StatusOver GameStatus = "OVER"
 )
 
 type Game struct {
 	ID				string						`json:"id"`
-	Boards			map[string][][]CellState    `json:"-"`
+	Boards			map[string][][]CellState    `json:"boards"`
 	Players			[2]string					`json:"players"`
 	ActivePlayer	string						`json:"active_player"`
 	Winner 			string						`json:"winner"`
@@ -40,6 +43,10 @@ var (
 	ErrOutOfBound = errors.New("Points are out of bound")
 	ErrBoardNotFound = errors.New("board not found")
 	ErrGameNotStarted = errors.New("Game has not started yet")
+	ErrShipPlaced = errors.New("Not Allowed to place Ship")
+	ErrShipLimitExceed = errors.New("Ship max/min limit is 5")
+	ErrInvalidShipPlacement = errors.New("Invalid Ship Placement")
+	ErrGameOver = errors.New("Game is Finished")
 )
 
 func NewGame(P1 , P2, roomId string) (*Game) {
@@ -51,25 +58,29 @@ func NewGame(P1 , P2, roomId string) (*Game) {
 		Winner: "",
 		Status: StatusWait,
 	}
-	Boards := make(map[string][][]CellState)
+	BoardsTemp := make(map[string][][]CellState)
 	for _ ,i := range g.Players {
 		
 		PlayerBoard :=  make([][]CellState,BoardSize)
-		for i:=range PlayerBoard {
-			PlayerBoard[i]  = make([]CellState, BoardSize)
-			for j:= range PlayerBoard[i]{
-				PlayerBoard[i][j] = Empty
+		for j:=range PlayerBoard {
+			PlayerBoard[j]  = make([]CellState, BoardSize)
+			for k:= range PlayerBoard[j]{
+				PlayerBoard[j][k] = Empty
 			}
 		}
-		Boards[i] = PlayerBoard
+		BoardsTemp[i] = PlayerBoard
 
 	}
-	g.Boards = Boards
+	g.Boards = BoardsTemp
 	return g
 }
 
 
 func (g *Game) HandleShot(playerID string, p Point) (CellState,error) {
+
+	if g.Status == StatusOver {
+		return Empty,ErrGameOver
+	}
 
 	if g.Status != StatusActive {
 		return Empty, ErrGameNotStarted
@@ -122,6 +133,7 @@ func (g  *Game) CheckWinner(playerID string) bool {
 		return  false
 	}
 	
+	g.Status = StatusOver
 	return true
 
 }
@@ -135,10 +147,14 @@ func (g *Game) GetOpponent(Player string) string {
 
 func (g *Game) AddShip(playerID string, Ships []Point) error {
 
-	if g.Status!=StatusActive {
-		return ErrGameNotStarted
+	if g.Status!=StatusWait {
+		return ErrShipPlaced
 	}
 	board := g.Boards[playerID]
+
+	if len(Ships)!=BoardSize{
+		return ErrShipLimitExceed
+	}
 
 	for i:= range Ships {
 		x := Ships[i].X
@@ -146,6 +162,10 @@ func (g *Game) AddShip(playerID string, Ships []Point) error {
 
 		if x < 0 || x>= BoardSize || y < 0 || y>=BoardSize {
 			return ErrOutOfBound
+		}
+
+		if board[x][y] == Ship {
+			return ErrInvalidShipPlacement
 		}
 
 		board[x][y] = Ship
@@ -161,6 +181,22 @@ func (g *Game) SwitchActivePlayer(playerID string)  {
 	g.ActivePlayer = opponentID
 }
 
-// move the logic of locking a game state above since we need to lock game state wheneven we perform operation on game
-// Add Active player to Game to Start
-// remember to handle condition if user send multiple move request in 1 ms
+func (g *Game) HideOpponentShips(playerID string) [][]CellState {
+	
+	opponentId := g.GetOpponent(playerID)
+
+	board := g.Boards[opponentId]  
+
+	for i := range board {
+		for j:= range board[i] {
+			if board[i][j] == Ship {
+				board[i][j] =  Empty
+			}
+		}
+	}
+	return board
+
+}
+
+
+// better option for error handling (if possible)

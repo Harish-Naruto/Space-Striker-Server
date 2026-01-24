@@ -75,6 +75,9 @@ my-project/
 ├── pkg/                      # Public Utilities
 │   ├── logger/               # Structured logging setup
 │   └── validator/            # Input validation helpers
+│   └── Domain/               # GameLogic
+│       │   └── game.go       
+|
 ├── api/                      # Open API Specs / Swagger
 ├── migrations/               # DB Migrations
 ├── Makefile                  # Build commands
@@ -171,9 +174,9 @@ REDIS_PASSWORD=
 - [ ] Implement match-Making logic
 - [ ] Add comprehensive unit tests for `game_service` logic (hit/miss validation).
 - [ ] Implement user logic in HTTP server
-- [ ] Implement game logic in websocket hub
+- [x] Implement game logic in websocket hub
 - [ ] Implement graceful shutdown for HTTP server and WebSocket hub.
-- [ ] Implement reconnect logic for WebSocket clients (handle temporary disconnects).
+- [x] Implement reconnect logic for WebSocket clients (handle temporary disconnects).
 - [ ] Add request validation middleware using `go-playground/validator`.
 
 **Infrastructure & DevOps**

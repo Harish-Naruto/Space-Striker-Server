@@ -25,7 +25,6 @@ type Hub struct {
 }
 
 
-
 func NewHub(rbd *redis.Client) *Hub {
 	
 	Id := uuid.NewString()
@@ -64,8 +63,8 @@ func (h *Hub) Run()  {
 
 			go func() {
 				if err := client.gs.HandleJoin(context.Background(),client.playerID,client.roomId); err!= nil {
+					log.Println("player got removed due to err : ",err)
 					h.Unregister<-client
-
 				}
 			}()
 			log.Println("user : "+client.playerID+" Joined")
@@ -136,7 +135,6 @@ func (h *Hub) ListenToSolo(ctx context.Context)  {
 		}
 		h.mu.Unlock()
 	}
-
 }
 
 func (h *Hub) BroadcastMessage(roomID string, payload []byte)  {
@@ -152,5 +150,3 @@ func (h *Hub) SoloMessage(channel string,payload []byte)  {
 		log.Printf("Redis publish error : %v",err)
 	}
 }
-
-

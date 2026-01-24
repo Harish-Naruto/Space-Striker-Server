@@ -42,7 +42,6 @@ type GameOverPayload struct {
 
 type ErrorPayload struct {
 	Message string `json:"message"`
-	To string	`json:"to"`
 }
 
 type HitPayload struct {
@@ -59,4 +58,13 @@ type PlacePayload struct {
 
 type UpdatePayload struct {
 	Message string `json:"message"`
+}
+
+type GameStateResponse struct {
+	Id string `json:"id"`
+	YourBoard [][]domain.CellState `json:"yourBoard"`
+	OpponentBoard [][]domain.CellState `json:"opponentBoard"`
+	ActivePlayer string	`json:"activePlayer"`
+	Winner	string	`json:"winner"`
+	Status	domain.GameStatus	`json:"status"` 
 }

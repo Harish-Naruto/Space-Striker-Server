@@ -13,6 +13,7 @@ import (
 
 var (
 	ErrGameFull = errors.New("Game Full") 
+	ErrPlayerAlreadyPlaced = errors.New("Ship has already placed in the game")
 )
 
 type RedisGameRepository struct {
@@ -96,4 +97,28 @@ func (R *RedisGameRepository) GetPlayerServer(ctx context.Context,playerID strin
 	}
 
 	return serverID
+}
+
+func (R *RedisGameRepository) AddPlayerShip(ctx context.Context,gameId string, playerId string) (int64,error) {
+	gameShipKey := "Ship:game-"+gameId
+
+	check,err := R.RedisClient.SIsMember(ctx,gameShipKey,playerId).Result()
+	if err!= nil {
+		return -1,err
+	}
+
+	if check {
+		return -1,ErrPlayerAlreadyPlaced
+	}
+	
+	size,err := R.RedisClient.SCard(ctx,gameShipKey).Result()
+
+	if size >=2 {
+		return -1, ErrGameFull
+	}
+
+	R.RedisClient.SAdd(ctx,gameShipKey,playerId)
+	
+	return R.RedisClient.SCard(ctx,gameShipKey).Val(),nil
+
 }

@@ -35,19 +35,25 @@ func NewGameService(r redis.RedisGameRepository, h HubInterface) *GameService {
 func (gs *GameService) HandleMove(ctx context.Context, playerId string, roomID string, payload json.RawMessage) {
 	var move models.MovePayload
 	if err := json.Unmarshal(payload, &move); err != nil {
-		gs.sendError(roomID, "Invalid move data",playerId)
+		gs.sendError("Invalid move data",playerId)
 		return
 	}
 
+	if err := gs.repo.LockGame(ctx,roomID);err!=nil{
+		gs.sendError(err.Error(),playerId)
+		return
+	}
+	defer gs.repo.DeleteLock(ctx,roomID)
+
 	game, err := gs.repo.GetGame(ctx, roomID)
 	if err != nil {
-		gs.sendError(roomID, "Game Not Found",playerId)
+		gs.sendError("Game Not Found",playerId)
 		return
 	}
 	// handle shot 
 	result, err := game.HandleShot(playerId, domain.Point(move))
 	if err != nil {
-		gs.sendError(roomID, err.Error(),playerId)
+		gs.sendError(err.Error(),playerId)
 		return
 	}
 	// check for winner
@@ -57,7 +63,7 @@ func (gs *GameService) HandleMove(ctx context.Context, playerId string, roomID s
 	game.SwitchActivePlayer(playerId)
 
 	if err := gs.repo.SaveGame(ctx, game); err != nil {
-		gs.sendError(roomID, "Failed to save the game",playerId)
+		gs.sendError( "Failed to save the game",playerId)
 		return
 	}
 	// send payload
@@ -65,47 +71,52 @@ func (gs *GameService) HandleMove(ctx context.Context, playerId string, roomID s
 }
 
 func (gs *GameService) HandlePlace(ctx context.Context, playerId string, RoomID string, payload json.RawMessage) {
-	defer gs.repo.DeleteLock(ctx, RoomID)
-
+	
 	var ships models.PlacePayload
-
+	
 	if err := json.Unmarshal(payload, &ships); err != nil {
-		gs.sendError(RoomID, "Invalid Ship payload",playerId)
+		gs.sendError("Invalid Ship payload",playerId)
 		return
 	}
-
+	
 	if err := gs.repo.LockGame(ctx, RoomID); err != nil {
-		gs.sendError(RoomID, err.Error(),playerId)
+		gs.sendError(err.Error(),playerId)
 		return
 	}
+	defer gs.repo.DeleteLock(ctx, RoomID)
 
 	game, err := gs.repo.GetGame(ctx, RoomID)
 	if err != nil {
-		gs.sendError(RoomID, err.Error(),playerId)
+		gs.sendError(err.Error(),playerId)
+		return
+	}
+	size,errShip := gs.repo.AddPlayerShip(ctx,RoomID,playerId)
+	if errShip != nil {
+		gs.sendError(errShip.Error(),playerId)
 		return
 	}
 	// add Ship for a player
 	game.AddShip(playerId, ships.Ships)
+	if size == 2 {
+		game.Status = domain.StatusActive
+	} 
 	if err := gs.repo.SaveGame(ctx, game); err != nil {
-		gs.sendError(RoomID, "Failed to save Game",playerId)
+		gs.sendError("Failed to save Game",playerId)
 		return
 	}
 
 	// Place Payload
-	gs.SendToRoom(RoomID, models.TypeGameUpdate, models.UpdatePayload{Message: "Ship Added For Player :" + playerId})
+	gs.SendGameHistory(ctx,playerId,RoomID)
+	if size == 2 {
+		gs.SendToRoom(RoomID,models.TypeGameUpdate,models.UpdatePayload{Message:"Game Started"})
+	} 
 }
 
 func (gs *GameService) HandleJoin(ctx context.Context, playerId string,roomID string) error {
-
-	defer gs.repo.DeleteLock(ctx,roomID)
-	if err := gs.repo.LockGame(ctx,roomID); err!=nil{
-		gs.SendToSolo(ctx,playerId,models.TypeGameUpdate,models.UpdatePayload{Message: "Player here is your game update"})
-		return nil
-	}
-
+	
 	if gs.repo.FindPlayer(ctx,roomID,playerId) {
-		// send game updated state
-		gs.SendToSolo(ctx,playerId,models.TypeGameUpdate,models.UpdatePayload{Message: "Player here is your game update"})
+		// send game updated state / previous state
+		gs.SendGameHistory(ctx,playerId,roomID)
 		return nil
 	}
 
@@ -113,6 +124,7 @@ func (gs *GameService) HandleJoin(ctx context.Context, playerId string,roomID st
 	if err != nil{
 		return err
 	}
+	
 	if number == 2 {
 		players,err := gs.repo.GetPlayers(ctx,roomID)
 		if len(players) == 0 || err!= nil {
@@ -131,6 +143,38 @@ func (gs *GameService) HandleJoin(ctx context.Context, playerId string,roomID st
 
 // Helpers
 
+func (gs *GameService) SendGameHistory(ctx context.Context,playerId string,roomID string)  {
+
+	if err := gs.repo.LockGame(ctx,roomID); err!= nil{
+		log.Printf("Error while locking : %v",err)
+		return
+	}
+	defer gs.repo.DeleteLock(ctx,roomID)
+	
+	// get game
+	game,err := gs.repo.GetGame(ctx,roomID)
+	if err!= nil{
+		log.Printf("Failed To get game, err : %v",err)
+		return
+	}
+
+	// Process the game to hide oppoent ships
+	opponentBoard := game.HideOpponentShips(playerId)
+	yourBoard := game.Boards[playerId]
+
+	gameState := models.GameStateResponse{
+		Id: roomID,
+		YourBoard: yourBoard,
+		OpponentBoard: opponentBoard,
+		ActivePlayer: game.ActivePlayer,
+		Winner: game.Winner,
+		Status: game.Status,
+	}
+
+	// Send it to Solo send
+	gs.SendToSolo(ctx,playerId,models.TypeGameState,gameState)
+}
+
 func (gs *GameService) BroadcastMoveResult(result domain.CellState, roomId string, move models.MovePayload, game *domain.Game, playerId string, IsWinner bool) {
 	resultPayload := models.HitPayload{
 		X:        move.X,
@@ -147,10 +191,9 @@ func (gs *GameService) BroadcastMoveResult(result domain.CellState, roomId strin
 	}
 }
 
-func (gs *GameService) sendError(roomId string, err string, playerId string) {
-	gs.SendToRoom(roomId, models.TypeError, models.ErrorPayload{
+func (gs *GameService) sendError(err string, playerId string) {
+	gs.SendToSolo(context.Background(),playerId, models.TypeError, models.ErrorPayload{
 		Message: err,
-		To: playerId,
 	})
 }
 

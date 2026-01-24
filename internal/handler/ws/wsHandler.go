@@ -7,16 +7,8 @@ import (
 
 	"github.com/Harish-Naruto/Space-Striker-Server/internal/models"
 	"github.com/Harish-Naruto/Space-Striker-Server/internal/services"
-	"github.com/Harish-Naruto/Space-Striker-Server/pkg/domain"
 )
 
-
-type GameStateResponse struct {
-	Id string `json:"id"`
-	YourBoard [][]domain.CellState `json:"yourBoard"`
-	OpponentBoard [][]domain.CellState `json:"opponentBoard"`
-	ActivePlayer string	`json:"activePlayer"`
-}
 
 func MessageHandler(raw []byte,roomId string,gs *services.GameService) error {
 	var msg models.MessageWs;
