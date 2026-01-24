@@ -10,7 +10,7 @@ import (
 )
 
 
-func MessageHandler(raw []byte,roomId string,gs *services.GameService) error {
+func MessageHandler(raw []byte,roomId string,gs *services.GameService, clientID string) error {
 	var msg models.MessageWs;
 	
 	if err := json.Unmarshal(raw,&msg); err!=nil {
@@ -19,9 +19,9 @@ func MessageHandler(raw []byte,roomId string,gs *services.GameService) error {
 	
 	switch msg.Type {
 	case models.TypeMove:
-		gs.HandleMove(context.Background(),msg.Sender,roomId,msg.Payload)
+		gs.HandleMove(context.Background(),clientID,roomId,msg.Payload)
 	case models.TypePlaceShip:
-		gs.HandlePlace(context.Background(),msg.Sender,roomId,msg.Payload)
+		gs.HandlePlace(context.Background(),clientID,roomId,msg.Payload)
 	default:
 		log.Println("Invalid Type of Message")
 	}

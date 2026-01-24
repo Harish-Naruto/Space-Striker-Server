@@ -27,7 +27,6 @@ const (
 
 type MessageWs struct {
 	Type MessageType `json:"type"`
-	Sender string	`json:"sender,omitempty"`
 	Payload json.RawMessage `json:"payload"`
 }
 

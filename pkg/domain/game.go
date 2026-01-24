@@ -199,4 +199,6 @@ func (g *Game) HideOpponentShips(playerID string) [][]CellState {
 }
 
 
+// disconnect user should keep game on hold and add timeout feature
+
 // better option for error handling (if possible)

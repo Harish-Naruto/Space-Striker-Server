@@ -50,7 +50,7 @@ func (c *Client) readPump() {
 			break
 		}
 		message = bytes.TrimSpace(bytes.Replace(message, newline, space, -1))
-		if err := MessageHandler(message,c.roomId,c.gs); err!=nil{
+		if err := MessageHandler(message,c.roomId,c.gs,c.playerID); err!=nil{
 			log.Print(err)
 		}
 
