@@ -141,6 +141,7 @@ func (gs *GameService) HandleJoin(ctx context.Context, playerId string,roomID st
 	return nil
 }
 
+
 // Helpers
 
 func (gs *GameService) SendGameHistory(ctx context.Context,playerId string,roomID string)  {

@@ -67,3 +67,8 @@ type GameStateResponse struct {
 	Winner	string	`json:"winner"`
 	Status	domain.GameStatus	`json:"status"` 
 }
+
+type ChatPayload struct {
+	Sender string `json:"sender,omitempty"`
+	Message string `json:"message"`
+}
