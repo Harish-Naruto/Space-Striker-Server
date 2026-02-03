@@ -47,6 +47,7 @@ var (
 	ErrShipLimitExceed = errors.New("Ship max/min limit is 5")
 	ErrInvalidShipPlacement = errors.New("Invalid Ship Placement")
 	ErrGameOver = errors.New("Game is Finished")
+	ErrInvalidMove = errors.New("Invalid Move")
 )
 
 func NewGame(P1 , P2, roomId string) (*Game) {
@@ -99,6 +100,10 @@ func (g *Game) HandleShot(playerID string, p Point) (CellState,error) {
 
 	if !ok {
 		return Empty, ErrBoardNotFound
+	}
+
+	if board[p.X][p.Y] == Hit || board[p.X][p.Y] == Miss {
+		return Empty,ErrInvalidMove
 	}
 
 	if board[p.X][p.Y] == Ship {

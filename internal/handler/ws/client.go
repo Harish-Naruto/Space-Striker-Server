@@ -102,7 +102,11 @@ func ServerWs(h *Hub, w http.ResponseWriter, r *http.Request) {
 		ReadBufferSize:    1024,
 		WriteBufferSize:   1024,
 		EnableCompression: true,
+		CheckOrigin: func(r *http.Request) bool {
+			return true
+		},
 	}
+
 
 	roomID := r.URL.Query().Get("roomID")
 	playerID := r.URL.Query().Get("playerID")

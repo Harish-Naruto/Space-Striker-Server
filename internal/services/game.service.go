@@ -106,9 +106,8 @@ func (gs *GameService) HandlePlace(ctx context.Context, playerId string, RoomID 
 	}
 
 	// Place Payload
-	gs.SendGameHistory(ctx,playerId,RoomID)
 	if size == 2 {
-		gs.SendToRoom(RoomID,models.TypeGameUpdate,models.UpdatePayload{Message:"Game Started"})
+		gs.SendGameHistoryToRoom( ctx,RoomID);
 	} 
 }
 
@@ -135,9 +134,9 @@ func (gs *GameService) HandleJoin(ctx context.Context, playerId string,roomID st
 			return errors.New("Failed to save Game")
 		}
 
-		  gs.SendToRoom(roomID, models.TypeGameUpdate,models.UpdatePayload{Message: "Game Created for roomID:"+roomID})
+		gs.SendGameHistoryToRoom(ctx,roomID);
 	}
-	 gs.SendToRoom(roomID,models.TypeGameUpdate,models.UpdatePayload{Message: "Player:"+ playerId+ " added to roomID:"+roomID})
+	
 	return nil
 }
 
@@ -146,16 +145,10 @@ func (gs *GameService) HandleJoin(ctx context.Context, playerId string,roomID st
 
 func (gs *GameService) SendGameHistory(ctx context.Context,playerId string,roomID string)  {
 
-	if err := gs.repo.LockGame(ctx,roomID); err!= nil{
-		log.Printf("Error while locking : %v",err)
-		return
-	}
-	defer gs.repo.DeleteLock(ctx,roomID)
-	
 	// get game
 	game,err := gs.repo.GetGame(ctx,roomID)
 	if err!= nil{
-		log.Printf("Failed To get game, err : %v",err)
+		log.Printf("Failed To get game %s, err : %v",roomID,err)
 		return
 	}
 
@@ -248,4 +241,14 @@ func toRawMessage(v any) json.RawMessage {
 		return json.RawMessage("{}")
 	}
 	return json.RawMessage(b)
+}
+
+func (gs *GameService) SendGameHistoryToRoom(ctx context.Context,roomId string)  {
+	players,err := gs.repo.GetPlayers(ctx,roomId);
+	if err != nil {
+		log.Println("error recieved: ",err);
+	}
+	for _, p := range players {
+		gs.SendGameHistory(ctx,p,roomId);
+	}
 }

@@ -56,7 +56,7 @@ type PlacePayload struct {
 }
 
 type UpdatePayload struct {
-	Message string `json:"message"`
+	Status domain.GameStatus `json:"status"`
 }
 
 type GameStateResponse struct {

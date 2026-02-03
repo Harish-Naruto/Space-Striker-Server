@@ -53,7 +53,7 @@ func (R *RedisGameRepository) LockGame(ctx context.Context, gameID string) error
 }
 
 func (R *RedisGameRepository) DeleteLock(ctx context.Context, gameID string) error {
-	lock := "lock:game"+gameID
+	lock := "lock:game-"+gameID
 	return R.RedisClient.Del(ctx,lock).Err()
 }
 
