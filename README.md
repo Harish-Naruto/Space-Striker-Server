@@ -172,8 +172,9 @@ REDIS_PASSWORD=
 **Core Features & Stability**
 
 - [ ] Implement match-Making logic
-- [ ] Add comprehensive unit tests for `game_service` logic (hit/miss validation).
-- [ ] Implement user logic in HTTP server
+- [ ] Implement Time based turn limit and Game limit
+- [x] Add comprehensive unit tests for `game_service` logic (hit/miss validation).
+- [x] Implement user logic in HTTP server
 - [x] Implement game logic in websocket hub
 - [ ] Implement graceful shutdown for HTTP server and WebSocket hub.
 - [x] Implement reconnect logic for WebSocket clients (handle temporary disconnects).
@@ -187,9 +188,9 @@ REDIS_PASSWORD=
 
 **Security**
 
-- [ ] Implement JWT Authentication for player sessions.
+- [x] Implement Authentication for room sessions.
 - [ ] Rate limit WebSocket connections to prevent abuse.
-- [ ] Sanitize chat inputs to prevent XSS/Injection.
+- [x] Sanitize chat inputs to prevent XSS/Injection.
 
 **Documentation(might do this)**
 

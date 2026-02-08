@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/Harish-Naruto/Space-Striker-Server/internal/models"
 	"github.com/Harish-Naruto/Space-Striker-Server/internal/repository/redis"
@@ -45,6 +46,9 @@ func (gs *GameService) HandleMove(ctx context.Context, playerId string, roomID s
 	}
 	defer gs.repo.DeleteLock(ctx,roomID)
 
+	// delete timer for current player
+	gs.repo.RedisClient.Del(ctx,"turn:"+roomID)
+
 	game, err := gs.repo.GetGame(ctx, roomID)
 	if err != nil {
 		gs.sendError("Game Not Found",playerId)
@@ -68,6 +72,9 @@ func (gs *GameService) HandleMove(ctx context.Context, playerId string, roomID s
 	}
 	// send payload
 	gs.BroadcastMoveResult(result, roomID, move, game, playerId, IsWinner)
+
+	//start timer for next player
+	gs.StartTimer(roomID)
 }
 
 func (gs *GameService) HandlePlace(ctx context.Context, playerId string, RoomID string, payload json.RawMessage) {
@@ -83,23 +90,32 @@ func (gs *GameService) HandlePlace(ctx context.Context, playerId string, RoomID 
 		gs.sendError(err.Error(),playerId)
 		return
 	}
+	
 	defer gs.repo.DeleteLock(ctx, RoomID)
 
 	game, err := gs.repo.GetGame(ctx, RoomID)
+	
 	if err != nil {
 		gs.sendError(err.Error(),playerId)
 		return
 	}
+	
 	size,errShip := gs.repo.AddPlayerShip(ctx,RoomID,playerId)
+	
 	if errShip != nil {
 		gs.sendError(errShip.Error(),playerId)
 		return
 	}
 	// add Ship for a player
+	
 	game.AddShip(playerId, ships.Ships)
+	
 	if size == 2 {
+		key := "place:"+game.ID
+		gs.repo.RedisClient.Del(ctx,key)
 		game.Status = domain.StatusActive
-	} 
+	}
+
 	if err := gs.repo.SaveGame(ctx, game); err != nil {
 		gs.sendError("Failed to save Game",playerId)
 		return
@@ -108,7 +124,8 @@ func (gs *GameService) HandlePlace(ctx context.Context, playerId string, RoomID 
 	// Place Payload
 	if size == 2 {
 		gs.SendGameHistoryToRoom( ctx,RoomID);
-	} 
+		gs.StartTimer(game.ID)
+	}
 }
 
 func (gs *GameService) HandleJoin(ctx context.Context, playerId string,roomID string) error {
@@ -133,13 +150,68 @@ func (gs *GameService) HandleJoin(ctx context.Context, playerId string,roomID st
 		if err := gs.repo.SaveGame(ctx,game);err != nil {
 			return errors.New("Failed to save Game")
 		}
-
+		key := "place:"+game.ID
+		gs.repo.RedisClient.Set(ctx,key,"Active",60*time.Second)
+		
 		gs.SendGameHistoryToRoom(ctx,roomID);
 	}
 	
 	return nil
 }
 
+func (gs *GameService) HandleTurnTimeOut(gameID string)  {
+	
+	//get game
+	game, err := gs.repo.GetGame(context.Background(),gameID);
+	if err!=nil {
+		log.Println(err)
+		return
+	}
+
+	//swtich activePlayer
+	game.SwitchActivePlayer(game.ActivePlayer)
+
+	errGame := gs.repo.SaveGame(context.Background(),game);
+
+	if errGame != nil{
+		log.Println(errGame)
+		return
+	}
+
+	timeOutPayload := &models.TimeOutPayload{
+		NextTurn: game.ActivePlayer,
+	}
+
+	gs.SendToRoom(gameID,models.TypeTimeOut,timeOutPayload)
+}
+
+func (gs *GameService) HandleDisconnect(gameID string,playerID string)  {
+	//get game
+	game,err := gs.repo.GetGame(context.Background(),gameID)
+	
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	//winner
+	game.Winner = game.GetOpponent(playerID)
+
+	if err := gs.repo.SaveGame(context.Background(),game); err!= nil{
+		log.Println(err)
+	}
+	
+	//send game over
+	gs.SendToRoom(gameID,models.TypeGameOver,&models.GameOverPayload{Winner: game.Winner})
+}
+
+func (gs *GameService) HandlePlaceTimeOut(gameID string)  {
+	gs.SendToRoom(gameID,models.TypeGameOver,&models.GameOverPayload{Winner: ""})
+}
+
+func (gs *GameService) HandleGameLimit(gameID string)  {
+	gs.SendToRoom(gameID,models.TypeGameOver,&models.GameOverPayload{Winner: ""})
+}
 
 // Helpers
 
@@ -250,5 +322,15 @@ func (gs *GameService) SendGameHistoryToRoom(ctx context.Context,roomId string) 
 	}
 	for _, p := range players {
 		gs.SendGameHistory(ctx,p,roomId);
+	}
+}
+
+func (gs *GameService) StartTimer(gameID string)  {
+	key := "turn:"+gameID
+	limit := 40 * time.Second
+
+	err := gs.repo.RedisClient.Set(context.Background(),key,"active",limit).Err()
+	if err != nil {
+		log.Println("Failed to Start the timer: ",err)
 	}
 }

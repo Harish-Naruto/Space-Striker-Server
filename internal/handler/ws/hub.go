@@ -6,6 +6,7 @@ import (
 	"log"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/Harish-Naruto/Space-Striker-Server/internal/models"
 	"github.com/google/uuid"
@@ -48,6 +49,8 @@ func (h *Hub) Run()  {
 	for {
 		select {
 		case client:= <-h.Register:
+			key := "disconnect:"+client.roomId+":"+client.playerID
+			h.rdb.Del(context.Background(),key)
 			h.mu.Lock()
 			if h.Rooms[client.roomId] == nil {
 				h.Rooms[client.roomId] = make(map[*Client]bool)
@@ -56,7 +59,7 @@ func (h *Hub) Run()  {
 				go h.SubscribeToRoom(ctx,client.roomId)
 			}
 
-			h.rdb.HSet(context.Background(),"presence",client.playerID,h.ServerID)
+			h.rdb.HSet(context.Background(),"presence",client.playerID,h.ServerID) // telling redis which server has which player
 			h.Rooms[client.roomId][client] = true
 			h.Clients[client.playerID] = client
 			h.mu.Unlock()
@@ -82,6 +85,8 @@ func (h *Hub) Run()  {
 							delete(h.RoomsCancels,client.roomId)
 						}
 					}
+					key := "disconnect:"+client.roomId+":"+client.playerID
+					h.rdb.Set(context.Background(),key,"Active",30*time.Second)
 					delete(h.Clients,client.playerID)
 					h.rdb.HDel(context.Background(),"presence",client.playerID)
 					log.Println("user : "+client.playerID+" Removed")
@@ -91,8 +96,7 @@ func (h *Hub) Run()  {
 			h.mu.Unlock()
 
 		case message := <-h.Broadcast:
-			err := h.rdb.Publish(context.Background(),message.RoomID,message.Payload).Err()
-			
+			err := h.rdb.Publish(context.Background(),message.RoomID,message.Payload).Err()		
 			if err!= nil {
 				log.Printf("Redis publish error : %v", err)
 			}

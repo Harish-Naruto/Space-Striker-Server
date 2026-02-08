@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	ErrGameFull = errors.New("Game Full") 
+	ErrGameFull = errors.New("Game Full")
 	ErrPlayerAlreadyPlaced = errors.New("Ship has already placed in the game")
 )
 
@@ -22,14 +22,17 @@ type RedisGameRepository struct {
 
 func (R *RedisGameRepository) SaveGame(ctx context.Context,g *domain.Game)	error {
 	data, err := json.Marshal(g)
+
 	if err!=nil {
 		return err
 	}
-	return R.RedisClient.Set(ctx,"game:"+g.ID,data,0).Err()
+
+	return R.RedisClient.Set(ctx,"game:"+g.ID,data,2*time.Minute).Err()
 }
 
 func (R *RedisGameRepository) GetGame(ctx context.Context,id string) (*domain.Game,error) {
 	data,err := R.RedisClient.Get(ctx,"game:"+id).Bytes()
+
 	if err!=nil {
 		return nil,err
 	}

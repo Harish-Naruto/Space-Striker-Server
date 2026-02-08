@@ -22,12 +22,17 @@ const (
 	// TypeHistory MessageType = "HISTORY" not using this rn
 	TypePlaceShip MessageType = "PLACE_SHIP"
 	TypeGameUpdate MessageType = "GAME_UPDATE"
+	TypeTimeOut MessageType = "TIME_OUT"
 
 )
 
 type MessageWs struct {
 	Type MessageType `json:"type"`
 	Payload json.RawMessage `json:"payload"`
+}
+
+type TimeOutPayload struct  {
+	NextTurn string `json:"nextTurn"`
 }
 
 type MovePayload struct {

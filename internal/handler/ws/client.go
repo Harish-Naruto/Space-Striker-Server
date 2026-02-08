@@ -5,8 +5,6 @@ import (
 	"log"
 	"net/http"
 	"time"
-
-	"github.com/Harish-Naruto/Space-Striker-Server/internal/repository/redis"
 	"github.com/Harish-Naruto/Space-Striker-Server/internal/services"
 	"github.com/gorilla/websocket"
 )
@@ -97,7 +95,7 @@ func (c *Client) writePump() {
 	}
 }
 
-func ServerWs(h *Hub, w http.ResponseWriter, r *http.Request) {
+func ServerWs(h *Hub, gs *services.GameService, w http.ResponseWriter, r *http.Request) {
 	upgrader := websocket.Upgrader{
 		ReadBufferSize:    1024,
 		WriteBufferSize:   1024,
@@ -122,10 +120,6 @@ func ServerWs(h *Hub, w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 		return
 	}
-	repo := redis.RedisGameRepository{
-		RedisClient: h.rdb,
-	}
-	gs := services.NewGameService(repo,h)
 
 	// create new Client
 	client := &Client{
