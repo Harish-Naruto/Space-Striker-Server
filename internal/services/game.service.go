@@ -65,12 +65,14 @@ func (gs *GameService) HandleMove(ctx context.Context, playerId string, roomID s
 	
 	// Switch ActivePlayer
 	game.SwitchActivePlayer(playerId)
+	game.AddEndAt(40*time.Second)
+
 
 	if err := gs.repo.SaveGame(ctx, game); err != nil {
 		gs.sendError( "Failed to save the game",playerId)
 		return
 	}
-	// send payload
+	
 	gs.BroadcastMoveResult(result, roomID, move, game, playerId, IsWinner)
 
 	//start timer for next player
@@ -114,6 +116,7 @@ func (gs *GameService) HandlePlace(ctx context.Context, playerId string, RoomID 
 		key := "place:"+game.ID
 		gs.repo.RedisClient.Del(ctx,key)
 		game.Status = domain.StatusActive
+		game.AddEndAt(40*time.Second)
 	}
 
 	if err := gs.repo.SaveGame(ctx, game); err != nil {
@@ -147,11 +150,12 @@ func (gs *GameService) HandleJoin(ctx context.Context, playerId string,roomID st
 			return errors.New("Game doesnot Exist")
 		}
 		game := domain.NewGame(players[0],players[1],roomID)
+		game.AddEndAt(60*time.Second)
 		if err := gs.repo.SaveGame(ctx,game);err != nil {
 			return errors.New("Failed to save Game")
 		}
 		key := "place:"+game.ID
-		gs.repo.RedisClient.Set(ctx,key,"Active",60*time.Second)
+		gs.repo.SetTimeOut(ctx,key,60*time.Second)
 		
 		gs.SendGameHistoryToRoom(ctx,roomID);
 	}
@@ -168,8 +172,9 @@ func (gs *GameService) HandleTurnTimeOut(gameID string)  {
 		return
 	}
 
-	//swtich activePlayer
+	//swtich activePlayer and add new timer
 	game.SwitchActivePlayer(game.ActivePlayer)
+	game.AddEndAt(40*time.Second)
 
 	errGame := gs.repo.SaveGame(context.Background(),game);
 
@@ -180,6 +185,7 @@ func (gs *GameService) HandleTurnTimeOut(gameID string)  {
 
 	timeOutPayload := &models.TimeOutPayload{
 		NextTurn: game.ActivePlayer,
+		EndAt: game.EndAt,
 	}
 
 	gs.SendToRoom(gameID,models.TypeTimeOut,timeOutPayload)
@@ -235,6 +241,7 @@ func (gs *GameService) SendGameHistory(ctx context.Context,playerId string,roomI
 		ActivePlayer: game.ActivePlayer,
 		Winner: game.Winner,
 		Status: game.Status,
+		EndAt: game.EndAt,
 	}
 
 	// Send it to Solo send
@@ -248,6 +255,7 @@ func (gs *GameService) BroadcastMoveResult(result domain.CellState, roomId strin
 		Result:   result,
 		NextTurn: game.ActivePlayer,
 		By:       playerId,
+		EndAt: game.EndAt,
 	}
 
 	gs.SendToRoom(roomId, models.TypeMove, resultPayload)
@@ -329,8 +337,5 @@ func (gs *GameService) StartTimer(gameID string)  {
 	key := "turn:"+gameID
 	limit := 40 * time.Second
 
-	err := gs.repo.RedisClient.Set(context.Background(),key,"active",limit).Err()
-	if err != nil {
-		log.Println("Failed to Start the timer: ",err)
-	}
+	gs.repo.SetTimeOut(context.Background(),key,limit)
 }

@@ -172,7 +172,7 @@ REDIS_PASSWORD=
 **Core Features & Stability**
 
 - [ ] Implement match-Making logic
-- [ ] Implement Time based turn limit and Game limit
+- [x] Implement Time based turn limit and Game limit
 - [x] Add comprehensive unit tests for `game_service` logic (hit/miss validation).
 - [x] Implement user logic in HTTP server
 - [x] Implement game logic in websocket hub

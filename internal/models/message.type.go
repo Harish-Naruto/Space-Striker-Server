@@ -33,6 +33,8 @@ type MessageWs struct {
 
 type TimeOutPayload struct  {
 	NextTurn string `json:"nextTurn"`
+	EndAt int64 `json:"endAt"`
+
 }
 
 type MovePayload struct {
@@ -54,6 +56,8 @@ type HitPayload struct {
 	Result   domain.CellState `json:"result"`
 	NextTurn string           `json:"nextTurn"`
 	By       string           `json:"by"`
+	EndAt int64 `json:"endAt"`
+
 }
 
 type PlacePayload struct {
@@ -71,6 +75,7 @@ type GameStateResponse struct {
 	ActivePlayer string	`json:"activePlayer"`
 	Winner	string	`json:"winner"`
 	Status	domain.GameStatus	`json:"status"` 
+	EndAt int64 `json:"endAt"`
 }
 
 type ChatPayload struct {

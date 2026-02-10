@@ -1,9 +1,11 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"net/http"
 
+	"github.com/Harish-Naruto/Space-Striker-Server/internal/game"
 	"github.com/Harish-Naruto/Space-Striker-Server/internal/handler/http_handler"
 	"github.com/Harish-Naruto/Space-Striker-Server/internal/handler/routes"
 	"github.com/Harish-Naruto/Space-Striker-Server/internal/infra"
@@ -25,6 +27,8 @@ func main() {
 	}
 	gs := services.NewGameService(repo,hub)
 	go hub.Run()
+
+	go game.ListenForTimeOut(context.Background(),rdb,gs)
 	
 	
 	router := gin.Default()

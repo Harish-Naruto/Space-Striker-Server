@@ -2,6 +2,7 @@ package domain
 
 import (
 	"errors"
+	"time"
 )
 
 var BoardSize = 5; //remember to take this from env file
@@ -30,7 +31,9 @@ type Game struct {
 	Players			[2]string					`json:"players"`
 	ActivePlayer	string						`json:"active_player"`
 	Winner 			string						`json:"winner"`
-	Status			GameStatus					`json:"status"`  //Current Status of A Game
+	Status			GameStatus					`json:"status"`
+	EndAt           int64                       `json:"endAt"`
+
 }
 
 type Point struct {
@@ -58,6 +61,7 @@ func NewGame(P1 , P2, roomId string) (*Game) {
 		ActivePlayer: P1,
 		Winner: "",
 		Status: StatusWait,
+		EndAt: -1,
 	}
 	BoardsTemp := make(map[string][][]CellState)
 	for _ ,i := range g.Players {
@@ -73,6 +77,7 @@ func NewGame(P1 , P2, roomId string) (*Game) {
 
 	}
 	g.Boards = BoardsTemp
+
 	return g
 }
 
@@ -203,7 +208,9 @@ func (g *Game) HideOpponentShips(playerID string) [][]CellState {
 
 }
 
+func (g *Game) AddEndAt(limit time.Duration)  {
+	g.EndAt = time.Now().Add(limit).UnixMilli()
+}
 
-// disconnect user should keep game on hold and add timeout feature
 
 // better option for error handling (if possible)

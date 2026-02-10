@@ -2,9 +2,12 @@ package ws
 
 import (
 	"bytes"
+	"encoding/json"
 	"log"
 	"net/http"
 	"time"
+
+	"github.com/Harish-Naruto/Space-Striker-Server/internal/models"
 	"github.com/Harish-Naruto/Space-Striker-Server/internal/services"
 	"github.com/gorilla/websocket"
 )
@@ -133,6 +136,26 @@ func ServerWs(h *Hub, gs *services.GameService, w http.ResponseWriter, r *http.R
 	// this spawns the read and write thread for each client to send and receive messages
 	go client.readPump()
 	go client.writePump()
+	
+	syncPayload := &struct {
+    	ServerTime int64 `json:"serverTime"`
+	}{
+    	ServerTime: time.Now().UnixMilli(),
+	}
+	p,err := json.Marshal(syncPayload)
+
+	syncMsg := models.MessageWs{
+		Type: "SYNC_TIME",
+		Payload: json.RawMessage(p),
+	}
+
+	temp,errr := json.Marshal(syncMsg)
+
+	if errr!= nil {
+		log.Println(errr)
+	}
+
+	client.send <- temp
 
 	// adding new client to hub
 	h.Register <- client

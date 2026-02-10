@@ -125,3 +125,11 @@ func (R *RedisGameRepository) AddPlayerShip(ctx context.Context,gameId string, p
 	return R.RedisClient.SCard(ctx,gameShipKey).Val(),nil
 
 }
+
+func (R *RedisGameRepository) SetTimeOut(ctx context.Context,key string,limit time.Duration)  {
+	grace := 2*time.Second
+	err := R.RedisClient.Set(ctx, key, "active", limit + grace).Err()
+	if err!= nil {
+		log.Println("Failed to start timer: ",err)
+	}
+}
