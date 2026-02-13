@@ -2,6 +2,11 @@
 
 **Space Striker** is a real-time, multiplayer strategy game backend inspired by the classic "Battleship" board game. This service handles game state management, player matchmaking, and real-time communication using WebSockets and Redis Pub/Sub to ensure low-latency gameplay.
 
+## 🔗 Related
+
+- **Frontend Repository** - [space-striker-client](https://github.com/Harish-Naruto/space-striker-client) (React TypeScript)
+
+
 ## 📖 Table of Contents
 
 - [Architecture](#🏗-architecture)
