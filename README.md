@@ -171,19 +171,18 @@ REDIS_PASSWORD=
 
 **Core Features & Stability**
 
-- [ ] Implement match-Making logic
+- [ ] ~~Implement match-Making logic~~
 - [x] Implement Time based turn limit and Game limit
 - [x] Add comprehensive unit tests for `game_service` logic (hit/miss validation).
 - [x] Implement user logic in HTTP server
 - [x] Implement game logic in websocket hub
-- [ ] Implement graceful shutdown for HTTP server and WebSocket hub.
+- [x] Implement graceful shutdown for HTTP server and WebSocket hub.
 - [x] Implement reconnect logic for WebSocket clients (handle temporary disconnects).
-- [ ] Add request validation middleware using `go-playground/validator`.
 
 **Infrastructure & DevOps**
 
 - [ ] Set up GitHub Actions CI pipeline (lint, test, build).
-- [ ] Add health check endpoints (`/health`, `/readiness`).
+- [x] Add health check endpoints (`/health`, `/readiness`).
 - [ ] Create a `docker-compose.prod.yml` for production deployment.
 
 **Security**
